@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>じゃんけんゲーム</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="title-group">
+        <h1>じゃんけんゲーム</h1>
+        <p class="subtitle">コンピューターと真剣勝負！</p>
+      </div>
+      <div class="header-controls">
+        <button id="sound-toggle" class="icon-btn" type="button" aria-pressed="true" title="効果音のオン/オフ">
+          <span id="sound-icon">🔊</span>
+          <span id="sound-label">効果音 ON</span>
+        </button>
+        <button id="reset-btn" class="secondary-btn" type="button" title="スコアと履歴をリセット (R)">
+          リセット
+        </button>
+      </div>
+    </header>
+
+    <section class="mode-bar" aria-label="対戦モード選択">
+      <span class="mode-label">モード:</span>
+      <div class="mode-buttons" role="group" aria-label="ゲームモード">
+        <button class="mode-btn active" type="button" data-mode="free">フリー対戦</button>
+        <button class="mode-btn" type="button" data-mode="bo3">3本勝負（2勝先取）</button>
+        <button class="mode-btn" type="button" data-mode="bo5">5本勝負（3勝先取）</button>
+      </div>
+    </section>
+
+    <main class="game-card">
+      <!-- マッチ進行バー（3本・5本勝負時に表示） -->
+      <div id="match-banner" class="match-banner hidden" aria-live="polite">
+        <div class="match-score-box player">
+          <span class="match-who">あなた</span>
+          <span id="match-player-wins" class="match-num">0</span>
+        </div>
+        <div class="match-center">
+          <span id="match-goal-text" class="match-goal">2勝先取</span>
+          <span id="match-status-text" class="match-status">対戦中</span>
+        </div>
+        <div class="match-score-box cpu">
+          <span class="match-who">CPU</span>
+          <span id="match-cpu-wins" class="match-num">0</span>
+        </div>
+      </div>
+
+      <!-- 対戦ステージ -->
+      <section class="arena" aria-label="対戦ステージ">
+        <div class="fighter player-side">
+          <span class="fighter-label">あなた</span>
+          <div id="player-hand-box" class="hand-display" aria-live="polite">
+            <span id="player-hand-emoji" class="hand-emoji">❔</span>
+            <span id="player-hand-name" class="hand-name">手を選んでね</span>
+          </div>
+        </div>
+
+        <div class="vs-column">
+          <div class="vs-badge">VS</div>
+          <div id="call-text" class="call-text">じゃんけん…</div>
+        </div>
+
+        <div class="fighter cpu-side">
+          <span class="fighter-label">CPU</span>
+          <div id="cpu-hand-box" class="hand-display" aria-live="polite">
+            <span id="cpu-hand-emoji" class="hand-emoji">🤖</span>
+            <span id="cpu-hand-name" class="hand-name">待機中</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 勝敗メッセージ -->
+      <section id="result-banner" class="result-banner neutral" aria-live="polite">
+        <p id="result-title" class="result-title">下の手から選んでスタート！</p>
+        <p id="result-detail" class="result-detail">キーボード（1: グー / 2: チョキ / 3: パー）でも操作できます</p>
+      </section>
+
+      <!-- もう一勝負ボタン（マッチ決着時） -->
+      <div id="rematch-wrap" class="rematch-wrap hidden">
+        <button id="rematch-btn" class="primary-btn" type="button">もう一勝負する</button>
+      </div>
+
+      <!-- 手の選択ボタン -->
+      <section class="choices" aria-label="出す手を選択">
+        <button class="choice-btn" type="button" data-hand="rock" aria-label="グー (1)">
+          <span class="choice-emoji">✊</span>
+          <span class="choice-name">グー</span>
+          <span class="choice-key">1 / G</span>
+        </button>
+        <button class="choice-btn" type="button" data-hand="scissors" aria-label="チョキ (2)">
+          <span class="choice-emoji">✌️</span>
+          <span class="choice-name">チョキ</span>
+          <span class="choice-key">2 / C</span>
+        </button>
+        <button class="choice-btn" type="button" data-hand="paper" aria-label="パー (3)">
+          <span class="choice-emoji">🖐️</span>
+          <span class="choice-name">パー</span>
+          <span class="choice-key">3 / P</span>
+        </button>
+      </section>
+    </main>
+
+    <!-- 通算スコア & 対戦履歴 -->
+    <div class="bottom-grid">
+      <section class="stats-card" aria-label="通算成績">
+        <h2>通算成績</h2>
+        <div class="stats-grid">
+          <div class="stat-item win">
+            <span class="stat-label">勝ち</span>
+            <span id="stat-wins" class="stat-value">0</span>
+          </div>
+          <div class="stat-item lose">
+            <span class="stat-label">負け</span>
+            <span id="stat-losses" class="stat-value">0</span>
+          </div>
+          <div class="stat-item draw">
+            <span class="stat-label">あいこ</span>
+            <span id="stat-draws" class="stat-value">0</span>
+          </div>
+          <div class="stat-item rate">
+            <span class="stat-label">勝率</span>
+            <span id="stat-rate" class="stat-value">0%</span>
+          </div>
+        </div>
+        <div class="streak-row">
+          <span>現在の連勝: <strong id="stat-streak">0</strong></span>
+          <span>最高連勝: <strong id="stat-best-streak">0</strong></span>
+        </div>
+      </section>
+
+      <section class="history-card" aria-label="対戦履歴">
+        <div class="history-header">
+          <h2>対戦履歴</h2>
+          <span id="round-count" class="round-count">全 0 戦</span>
+        </div>
+        <ul id="history-list" class="history-list">
+          <li class="history-empty">まだ対戦履歴がありません。</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
