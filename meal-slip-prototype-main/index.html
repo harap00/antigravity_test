@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>食事箋の入力（プロトタイプ）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ポップでウキウキする食事箋UI（視認性・操作性・ダークモード対応を維持） */
+  :root {
+    --bg: #fff9f0; --surface: #ffffff; --ink: #2b213a; --muted: #6e6280; --line: #eadbc8;
+    --accent: #ff6b4a; --accent-2: #ff4d8d; --accent-dark: #d84327; --on-accent: #ffffff; --accent-soft: #fff0ea;
+    --sky: #0ea5e9; --sky-soft: #e0f2fe;
+    --purple: #7c3aed; --purple-soft: #ede9fe;
+    --warn: #92400e; --warn-bg: #fef3c7; --warn-line: #fbbf24;
+    --danger: #e11d48; --danger-dark: #be123c; --danger-bg: #ffe4e6;
+    --ok: #059669; --ok-dark: #047857; --ok-bg: #d1fae5;
+    --shadow-card: 0 10px 26px rgba(43, 33, 58, 0.06), 0 4px 0 rgba(234, 219, 200, 0.85);
+    --font: 'M PLUS Rounded 1c', 'Noto Sans JP', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Yu Gothic', Meiryo, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #171324; --surface: #221c35; --ink: #faf5ff; --muted: #b7abc9; --line: #3c3259;
+    --accent: #ff8566; --accent-2: #ff6aa2; --accent-dark: #d94c2e; --on-accent: #1d101c; --accent-soft: #3a2334;
+    --sky: #38bdf8; --sky-soft: #162e47;
+    --purple: #a78bfa; --purple-soft: #2e244d;
+    --warn: #fde68a; --warn-bg: #3b2d12; --warn-line: #d97706;
+    --danger: #fb7185; --danger-dark: #e11d48; --danger-bg: #451a2a;
+    --ok: #34d399; --ok-dark: #059669; --ok-bg: #123b31;
+    --shadow-card: 0 12px 28px rgba(0, 0, 0, 0.35), 0 4px 0 #31274a; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #171324; --surface: #221c35; --ink: #faf5ff; --muted: #b7abc9; --line: #3c3259;
+    --accent: #ff8566; --accent-2: #ff6aa2; --accent-dark: #d94c2e; --on-accent: #1d101c; --accent-soft: #3a2334;
+    --sky: #38bdf8; --sky-soft: #162e47;
+    --purple: #a78bfa; --purple-soft: #2e244d;
+    --warn: #fde68a; --warn-bg: #3b2d12; --warn-line: #d97706;
+    --danger: #fb7185; --danger-dark: #e11d48; --danger-bg: #451a2a;
+    --ok: #34d399; --ok-dark: #059669; --ok-bg: #123b31;
+    --shadow-card: 0 12px 28px rgba(0, 0, 0, 0.35), 0 4px 0 #31274a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; font-family: var(--font); font-size: 16px; line-height: 1.6; color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 10% 10%, rgba(255, 209, 102, 0.24) 0%, transparent 34%),
+      radial-gradient(circle at 90% 16%, rgba(255, 77, 141, 0.14) 0%, transparent 36%),
+      radial-gradient(circle at 82% 88%, rgba(56, 189, 248, 0.15) 0%, transparent 38%),
+      radial-gradient(rgba(255, 107, 74, 0.08) 1.5px, transparent 1.5px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 26px 26px;
+    background-attachment: fixed;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent); font-weight: 700; }
+
+  /* 上の帯と見出し */
+  header {
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 5;
+    border-bottom: 2px solid var(--line);
+  }
+  .band {
+    background: linear-gradient(90deg, var(--warn-bg), color-mix(in srgb, var(--warn-bg) 75%, var(--accent-soft)));
+    color: var(--warn); padding: 8px 16px; font-size: 13px; text-align: center;
+    border-bottom: 1.5px dashed var(--warn-line);
+  }
+  .bar { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; }
+  .bar h1 {
+    font-size: 21px; margin: 0 8px 0 0; font-weight: 900; letter-spacing: .02em;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .logo-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, #ffd166, #ff6b4a);
+    box-shadow: 0 3px 0 #d84327; font-size: 20px;
+    transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .bar h1:hover .logo-badge { transform: rotate(-10deg) scale(1.1); }
+  .proto-pill {
+    font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+    background: var(--purple-soft); color: var(--purple); border: 1.5px solid color-mix(in srgb, var(--purple) 30%, transparent);
+  }
+  .tabs {
+    display: flex; gap: 6px; background: var(--surface); border: 2px solid var(--line);
+    border-radius: 999px; padding: 5px; box-shadow: 0 3px 0 var(--line);
+  }
+  .tabs button {
+    border: 0; background: transparent; padding: 8px 18px; border-radius: 999px;
+    font-weight: 800; min-height: 42px; color: var(--muted);
+    transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), background .2s ease, color .2s ease;
+  }
+  .tabs button:hover:not(.on) { color: var(--accent); background: var(--accent-soft); }
+  .tabs button.on {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--on-accent); box-shadow: 0 3px 0 var(--accent-dark);
+  }
+  .spacer { flex: 1; }
+  .who { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 700; }
+  .who select {
+    padding: 6px 14px; border: 2px solid var(--line); border-radius: 999px;
+    background: var(--surface); color: var(--ink); min-height: 38px; font-weight: 700;
+    box-shadow: 0 2px 0 var(--line);
+  }
+  .menu-btn {
+    border: 2px solid var(--line); background: var(--surface); padding: 6px 16px;
+    border-radius: 999px; font-size: 14px; font-weight: 800; min-height: 38px;
+    box-shadow: 0 3px 0 var(--line);
+  }
+  .menu-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  /* カード */
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 56px; }
+  .page { display: none; }
+  .page.on { display: block; animation: fadeSlide .25s ease-out; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .card {
+    background: var(--surface); border: 2px solid var(--line); border-radius: 24px;
+    padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow-card);
+  }
+  .step-head {
+    display: flex; align-items: center; gap: 10px; margin: 0 0 14px;
+    font-size: 17px; color: var(--ink); font-weight: 900; letter-spacing: .02em;
+  }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #ffd166, #ff6b4a); color: #fff;
+    font-size: 15px; font-weight: 900; box-shadow: 0 3px 0 #d84327;
+  }
+  .step-num.mint { background: linear-gradient(135deg, #34d399, #0ea5e9); box-shadow: 0 3px 0 #0284c7; }
+  .step-num.berry { background: linear-gradient(135deg, #a78bfa, #ff4d8d); box-shadow: 0 3px 0 #be185d; }
+  h2 { font-size: 16px; margin: 0 0 12px; color: var(--ink); font-weight: 800; letter-spacing: .03em; }
+  h3 { font-size: 15px; margin: 16px 0 8px; font-weight: 800; }
+  .sub { color: var(--muted); font-size: 13px; margin: 4px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+
+  /* 利用者の選択（ひな形の「選ぶボタン」） */
+  .users { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .user { border: 2px solid var(--line); border-radius: 16px; min-height: 56px; padding: 10px 14px; background: var(--surface); text-align: left; box-shadow: 0 3px 0 var(--line); }
+  .user:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .user.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 3px 0 var(--accent); }
+  .user b { display: block; font-size: 16px; }
+  .user span { font-size: 12px; color: var(--muted); }
+
+  /* ボタン（カチッと押せる立体ボタン） */
+  .btn {
+    border: 2px solid var(--accent-dark);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--on-accent); min-height: 48px; padding: 10px 24px;
+    border-radius: 16px; font-weight: 900; font-size: 16px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    box-shadow: 0 4px 0 var(--accent-dark), 0 6px 14px rgba(255, 107, 74, 0.18);
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
+  .btn.sec {
+    background: var(--surface); color: var(--ink); border: 2px solid var(--line);
+    font-weight: 800; box-shadow: 0 3px 0 var(--line);
+  }
+  .btn.sec:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .btn.ng { background: linear-gradient(135deg, #f43f5e, var(--danger)); border-color: var(--danger-dark); color: #fff; box-shadow: 0 4px 0 var(--danger-dark); }
+  .btn:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; transform: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  textarea {
+    width: 100%; min-height: 74px; border: 2px solid var(--line); border-radius: 16px;
+    padding: 12px 14px; font-size: 17px; background: var(--bg); resize: vertical; margin-top: 12px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  textarea:focus, input[type=text]:focus, input[type=password]:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255, 107, 74, 0.18);
+  }
+
+  /* マイク（楽しく押せる大きな「話す」ボタン） */
+  .mic {
+    border: 2px solid var(--accent); background: var(--surface); color: var(--accent);
+    border-radius: 999px; padding: 8px 20px; font-weight: 800; min-height: 44px;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 35%, var(--line));
+  }
+  .mic:hover:not(:disabled) { background: var(--accent-soft); transform: translateY(-2px); }
+  .mic.rec { background: var(--danger); border-color: var(--danger-dark); color: #fff; box-shadow: 0 3px 0 var(--danger-dark); animation: micPulse 1.3s ease-in-out infinite; }
+  #micBtn {
+    flex: 1 1 100%; min-height: 88px; border: 0; border-radius: 22px;
+    background: linear-gradient(135deg, #ff7a45 0%, #ff4d8d 100%);
+    color: #ffffff; font-size: 23px; font-weight: 900; letter-spacing: .04em;
+    box-shadow: 0 6px 0 #c9335c, 0 12px 24px rgba(255, 77, 141, 0.24);
+  }
+  #micBtn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+  #micBtn.rec {
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    color: #fff; box-shadow: 0 5px 0 #881337;
+    animation: micPulse 1.3s ease-in-out infinite;
+  }
+  @keyframes micPulse {
+    0%, 100% { box-shadow: 0 5px 0 #881337, 0 0 0 0 rgba(225, 29, 72, 0.45); }
+    50% { box-shadow: 0 5px 0 #881337, 0 0 0 14px rgba(225, 29, 72, 0); }
+  }
+
+  .photo-prev {
+    display: flex; gap: 12px; align-items: flex-start; margin-top: 12px;
+    padding: 12px; border-radius: 16px; background: var(--bg); border: 2px dashed var(--line);
+  }
+  .photo-prev img { max-width: 180px; max-height: 220px; border: 2px solid var(--surface); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+
+  /* お知らせの帯 */
+  .note { background: var(--warn-bg); color: var(--warn); border: 1.5px solid var(--warn-line); border-radius: 14px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+  .err { background: var(--danger-bg); color: var(--danger); border: 1.5px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: 14px; padding: 10px 14px; margin: 10px 0; font-size: 14px; font-weight: 700; }
+  .okbox { background: var(--ok-bg); color: var(--ok); border: 1.5px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 14px; padding: 10px 14px; margin: 10px 0; font-size: 14px; font-weight: 700; }
+
+  /* AIの読み取り（確認の文章） */
+  #planCard:not([hidden]) { animation: popIn .35s cubic-bezier(.34, 1.56, .64, 1); }
+  @keyframes popIn { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .explain {
+    border: 2.5px solid var(--accent); border-radius: 20px; padding: 18px 20px;
+    background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--warn-bg) 55%, var(--surface)));
+    font-size: 19px; font-weight: 900; margin: 8px 0 14px;
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 30%, var(--line));
+  }
+  .question {
+    background: var(--sky-soft); color: var(--ink);
+    border: 2px solid color-mix(in srgb, var(--sky) 45%, var(--line));
+    border-radius: 18px; padding: 14px 16px; margin: 14px 0;
+  }
+  .question p { margin: 0 0 10px; font-weight: 800; font-size: 16px; }
+  .choices { display: flex; flex-wrap: wrap; gap: 10px; }
+  .choices button {
+    border: 2px solid var(--line); background: var(--surface); border-radius: 14px;
+    min-height: 48px; padding: 8px 18px; font-weight: 800;
+    box-shadow: 0 3px 0 var(--line);
+  }
+  .choices button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  details { margin: 12px 0; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 700; }
+  pre { white-space: pre-wrap; word-break: break-all; background: var(--bg); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 13px; max-height: 320px; overflow: auto; }
+
+  /* 表 */
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: center; vertical-align: middle; }
+  th { font-size: 12px; color: var(--ink); background: var(--accent-soft); letter-spacing: .05em; font-weight: 800; }
+  td.d { text-align: left; white-space: nowrap; font-weight: 700; }
+  td.no { color: var(--danger); background: var(--danger-bg); font-weight: 700; }
+  td.chg { background: var(--warn-bg); color: var(--warn); outline: 2.5px solid var(--warn-line); outline-offset: -2px; font-weight: 900; border-radius: 8px; }
+  .tbl-wrap { overflow-x: auto; border: 2px solid var(--line); border-radius: 16px; background: var(--surface); }
+  td.tap { cursor: pointer; transition: transform .1s ease, filter .1s ease; }
+  td.tap:hover { filter: brightness(.95); transform: scale(1.03); }
+  td.edited { outline: 2.5px dashed var(--purple); outline-offset: -3px; border-radius: 8px; }
+  td.edited::after { content: ' ✎'; font-size: 12px; color: var(--purple); }
+  .memo { min-height: 56px; font-size: 16px; }
+
+  /* 依頼・用語の一覧 */
+  .req {
+    border: 2px solid var(--line); border-radius: 18px; padding: 14px 16px;
+    margin-bottom: 12px; background: var(--surface);
+    box-shadow: 0 3px 0 var(--line);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .req:hover { transform: translateY(-1px); }
+  .req.new {
+    border: 2.5px solid var(--accent);
+    background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 42%);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 45%, var(--line));
+  }
+  .req .meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; margin-left: 6px; }
+  .badge.late { background: var(--danger-bg); color: var(--danger); }
+  .badge.done { background: var(--ok-bg); color: var(--ok); }
+  .badge.wait { background: var(--sky-soft); color: var(--sky); }
+
+  .loading { display: none; align-items: center; gap: 10px; padding: 12px 14px; color: var(--accent); font-weight: 800; background: var(--accent-soft); border-radius: 14px; margin-top: 10px; }
+  .loading.on { display: flex; }
+  .spin { width: 22px; height: 22px; border: 3.5px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-right-color: var(--accent-2); border-radius: 50%; animation: s .75s linear infinite; flex-shrink: 0; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .modal { position: fixed; inset: 0; background: rgba(25, 16, 40, .52); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal.on { display: flex; }
+  .modal .box {
+    background: var(--surface); border: 2px solid var(--line); border-radius: 24px;
+    padding: 22px; max-width: 900px; width: 100%; max-height: 90vh; overflow: auto;
+    box-shadow: 0 20px 50px rgba(25, 16, 40, .28), 0 6px 0 var(--line);
+    animation: modalPop .25s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  @keyframes modalPop { from { opacity: 0; transform: scale(.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 10px; }
+  .samples button {
+    border: 2px solid var(--line); background: var(--surface); border-radius: 16px;
+    padding: 12px 14px; text-align: left; font-size: 14px; font-weight: 800;
+    box-shadow: 0 3px 0 var(--line);
+  }
+  .samples button:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-2px); }
+  .samples button span { display: block; color: var(--muted); font-size: 12px; font-weight: 500; margin-top: 2px; }
+
+  /* 参考：利用者の予定 */
+  .recent { margin-top: 14px; border: 2px solid var(--line); border-radius: 18px; padding: 12px 14px; background: var(--bg); font-size: 14px; }
+  .recent .head { font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+  .recent table { font-size: 13px; }
+  .recent td { padding: 5px 4px; }
+  .recent tr.today td.d { font-weight: 900; color: var(--accent); }
+  .recent .head.row { display: flex; align-items: center; gap: 6px; }
+  .recent .pager { border: 2px solid var(--line); background: var(--surface); border-radius: 999px; min-height: 32px; padding: 2px 12px; color: var(--accent); font-weight: 800; box-shadow: 0 2px 0 var(--line); }
+  .recent .pager:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  .recent .pager:disabled { opacity: .35; cursor: default; box-shadow: none; }
+  .recent .range { font-weight: 700; min-width: 7.5em; text-align: center; font-size: 13px; }
+  .recent .why { display: block; font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+  /* 対象の利用者と、AIに送る文 */
+  .target {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px;
+    border: 2px solid var(--line); border-radius: 18px; padding: 12px 16px; background: var(--bg);
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .target:has(#targetName:not(.none)) {
+    border-color: var(--ok); background: color-mix(in srgb, var(--ok-bg) 50%, var(--surface));
+  }
+  .target .lab { font-size: 13px; color: var(--muted); font-weight: 800; }
+  .target #targetName { font-size: 18px; font-weight: 900; color: var(--ok-dark); }
+  .target #targetName.none { font-size: 15px; font-weight: 500; color: var(--muted); }
+  .target .btn { min-height: 42px; }
+  .btn.go {
+    flex: 1 1 100%; min-height: 60px; font-size: 19px; border-radius: 18px;
+    background: linear-gradient(135deg, #ff6b4a 0%, #ff4d8d 55%, #8b5cf6 100%);
+    border-color: #b8325e;
+    box-shadow: 0 5px 0 #b8325e, 0 10px 22px rgba(255, 77, 141, 0.22);
+  }
+  .masked { margin-top: 10px; border-radius: 14px; padding: 10px 14px; background: var(--bg); border: 2px dashed var(--line); font-size: 14px; }
+  .masked b { color: var(--muted); font-size: 12px; display: block; margin-bottom: 2px; }
+
+  /* 右から出る候補パネル */
+  .picker-back { position: fixed; inset: 0; background: rgba(25, 16, 40, .42); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 24; }
+  .picker-back.on { opacity: 1; pointer-events: auto; }
+  .picker {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw);
+    background: var(--surface); border-left: 2px solid var(--line); border-radius: 24px 0 0 24px;
+    box-shadow: -10px 0 30px rgba(25, 16, 40, .2); z-index: 25;
+    transform: translateX(105%); transition: transform .28s cubic-bezier(.34, 1.25, .64, 1);
+    display: flex; flex-direction: column; gap: 10px; padding: 18px; overflow: hidden;
+  }
+  .picker.on { transform: translateX(0); }
+  .picker-head { display: flex; align-items: center; gap: 8px; }
+  .picker-head h2 { margin: 0; font-size: 19px; color: var(--ink); font-weight: 900; }
+  .picker-msg { font-size: 14px; font-weight: 700; }
+  .picker-msg:empty { display: none; }
+  #pickerAll { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+  #pickerAll[hidden] { display: none !important; }
+  .floors { display: flex; flex-wrap: wrap; gap: 6px; }
+  .floors button { border: 2px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; font-size: 13px; font-weight: 800; min-height: 36px; }
+  .floors button:hover { border-color: var(--accent); }
+  .floors button.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-dark); color: var(--on-accent); }
+  .picker-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+  .cand { border: 2px solid var(--line); border-radius: 16px; background: var(--surface); padding: 10px 14px; text-align: left; min-height: 56px; box-shadow: 0 3px 0 var(--line); }
+  .cand:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+  .cand.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 3px 0 var(--accent); }
+  .cand b { display: block; font-size: 17px; }
+  .cand span { font-size: 12px; color: var(--muted); }
+  .cand mark { background: var(--warn-bg); color: inherit; border-radius: 4px; padding: 0 3px; }
+  #pickerHits { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .link { border: 0; background: none; color: var(--accent); text-decoration: underline; font-size: 14px; font-weight: 700; padding: 6px 0; text-align: left; }
+
+  /* 押した感：ぷっくり沈んで戻る */
+  button, .btn { transition: transform .12s cubic-bezier(.34, 1.56, .64, 1), filter .12s ease, background-color .15s ease, box-shadow .12s ease; }
+  button:active:not(:disabled), label.btn:active { transform: translateY(3px) scale(.98); box-shadow: 0 1px 0 var(--line); filter: brightness(.96); }
+  .btn:active:not(:disabled) { box-shadow: 0 1px 0 var(--accent-dark); }
+  .btn.ng:active:not(:disabled) { box-shadow: 0 1px 0 var(--danger-dark); }
+  #micBtn:active:not(:disabled) { box-shadow: 0 2px 0 #c9335c; }
+  button.busy, button.busy:disabled { opacity: 1; cursor: progress; }
+  button.busy::before { content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 8px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; }
+  .choices button.chosen, .choices button.chosen:disabled { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-dark); color: var(--on-accent); opacity: 1; box-shadow: 0 3px 0 var(--accent-dark); }
+  .plan-loading { background: var(--accent-soft); color: var(--accent); border: 2px solid var(--accent); border-radius: 16px; padding: 12px 16px; margin-bottom: 12px; font-weight: 800; position: sticky; top: calc(var(--head-h, 0px) + 8px); z-index: 2; }
+  #planBody.waiting { opacity: .55; }
+  .clear-row { margin-top: 8px; }
+  .choices button.speak { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+  .plan-who {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+    border-left: 6px solid var(--ok); background: var(--ok-bg);
+    border-radius: 16px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .plan-who .lab { font-size: 13px; color: var(--ok-dark); font-weight: 800; }
+  .plan-who b { font-size: 24px; font-weight: 900; color: var(--ink); }
+  .plan-who .meta { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .clear-row .btn { min-height: 36px; padding: 4px 14px; font-size: 14px; border-radius: 999px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+    background: var(--ink); color: var(--bg); padding: 12px 22px; border-radius: 999px;
+    font-weight: 800; box-shadow: 0 10px 26px rgba(25, 16, 40, .28); border: 2px solid var(--accent);
+    display: none; z-index: 30;
+  }
+  .toast.on { display: block; animation: toastBounce .3s cubic-bezier(.34, 1.56, .64, 1) forwards; }
+  @keyframes toastBounce { to { transform: translateX(-50%) translateY(0); } }
+  .confetti-piece {
+    position: fixed; top: -16px; width: 10px; height: 14px; border-radius: 3px;
+    pointer-events: none; z-index: 50;
+    animation: confettiFall 1.35s cubic-bezier(.2, .8, .4, 1) forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(90vh) rotate(540deg) scale(.7); opacity: 0; }
+  }
+  input[type=text], input[type=password] { border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; min-height: 48px; width: 100%; background: var(--bg); }
+  @media (max-width: 640px) { header { position: static; } main { padding: 12px 10px 44px; } .bar h1 { font-size: 18px; } .explain { font-size: 17px; } #micBtn { font-size: 20px; min-height: 76px; } .card { padding: 16px; border-radius: 20px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } .confetti-piece { display: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="band">✨ プロトタイプ（動くサンプル）です。データはすべて架空です。AIは間違うことがあります。<b>実名の入った紙は撮らないでください。</b>データは開いた人全員で共有しています。</div>
+  <div class="bar">
+    <h1><span class="logo-badge" aria-hidden="true">🍱</span>食事箋の入力 <span class="proto-pill">サンプル</span></h1>
+    <div class="tabs" id="tabs">
+      <button data-p="care" class="on">🗣️ 介護職員</button>
+      <button data-p="kitchen">🍳 厨房</button>
+      <button data-p="glossary">📖 用語集</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="who">あなた：<select id="me"></select></div>
+    <button class="menu-btn" id="openSettings">⚙️ 設定</button>
+  </div>
+</header>
+
+<main>
+  <!-- 介護職員 -->
+  <section class="page on" id="care">
+    <div class="card">
+      <h2 class="step-head"><span class="step-num">1</span>変更を伝える（話す・写真・文字）</h2>
+      <div class="row">
+        <button class="mic" id="micBtn">🎤 話す</button>
+        <button class="btn sec" id="sampleBtn">📄 見本の食事箋から選ぶ</button>
+        <label class="btn sec" for="camera">📷 写真を撮る・選ぶ</label>
+        <input type="file" id="camera" accept="image/*" capture="environment" hidden>
+      </div>
+      <p class="sub" id="micHint"></p>
+      <p class="note">📷 カメラで撮るときは、<b>実名の入った紙は撮らないでください。</b>撮った写真は外部のAIに送られます（保存はしません）。</p>
+      <textarea id="inputText" rows="3" placeholder="例：佐藤さん、明日の夕方から外泊がなくなったので、夕食から食べます"></textarea>
+      <div class="row clear-row"><span class="spacer"></span><button class="btn sec" id="clearBtn">🧹 入力を消す</button></div>
+      <div class="photo-prev" id="photoPrev" hidden>
+        <img id="photoImg" alt="入れた写真">
+        <div>
+          <div id="photoLabel" class="sub"></div>
+          <button class="btn sec" id="photoClear">写真を外す</button>
+        </div>
+      </div>
+      <div class="target" id="targetBox">
+        <span class="lab">👤 対象の利用者</span>
+        <span id="targetName" class="none">まだ選んでいません</span>
+        <span class="spacer"></span>
+        <button class="btn sec" id="pickManual">🔍 人を手動で選ぶ</button>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn go" id="interpretBtn">✨ AIに読み取ってもらう</button>
+      </div>
+      <div class="masked" id="maskedBox" hidden></div>
+      <div class="loading" id="careLoading"><div class="spin"></div><span>AIが今の予定と照らして考えています…（10〜40秒ほど）</span></div>
+      <div id="careError"></div>
+      <div class="recent" id="recentBox" hidden></div>
+    </div>
+
+    <div class="card" id="planCard" hidden>
+      <h2 class="step-head"><span class="step-num mint">2</span>AIの読み取り（変更案）</h2>
+      <div class="loading plan-loading" id="planLoading"><div class="spin"></div><span>AIが読み直しています…（10〜40秒ほど）</span></div>
+      <div id="planBody"></div>
+    </div>
+  </section>
+
+  <!-- 厨房 -->
+  <section class="page" id="kitchen">
+    <div class="card">
+      <div class="row">
+        <h2 class="step-head" style="margin:0"><span class="step-num">📬</span>届いた依頼</h2>
+        <div class="spacer"></div>
+        <span class="small" id="lastCheck"></span>
+        <button class="btn sec" id="refreshBtn">🔄 今すぐ確かめる</button>
+      </div>
+      <p class="sub">この画面を開いている間は、30秒ごとに新しい依頼を確かめます。</p>
+      <div id="reqList"></div>
+      <details><summary>確認済みの依頼</summary><div id="doneList"></div></details>
+    </div>
+    <div class="card">
+      <h2 class="step-head"><span class="step-num mint">🍽️</span>食数（名前のある10人＋ほか <span id="otherCount"></span> 人分）</h2>
+      <p class="sub">色の付いたところは、直前に確認した依頼で変わったところです。</p>
+      <div class="tbl-wrap" id="countTable"></div>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px"><h2 class="step-head" style="margin:0"><span class="step-num berry">📅</span>利用者ごとの予定表</h2><select id="schedUser" style="border:2px solid var(--line);border-radius:999px;padding:6px 14px;background:var(--surface);font-weight:700"></select></div>
+      <div class="tbl-wrap" id="schedTable" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- 用語集 -->
+  <section class="page" id="glossary">
+    <div class="card">
+      <h2 class="step-head"><span class="step-num berry">📖</span>用語集</h2>
+      <p class="sub">施設ごとの言い方です。AIが知らない言葉を聞き返し、答えが「候補」になります。施設の職員ならだれでも承認でき、承認した言葉だけが次からAIに渡ります。</p>
+      <div id="glossaryList"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 合言葉 -->
+<div class="modal" id="passModal">
+  <div class="box" style="max-width:440px">
+    <h2 class="step-head"><span class="step-num">🔑</span>合言葉を入れてください</h2>
+    <p class="sub">このプロトタイプを使うための合言葉です。</p>
+    <input type="password" id="passInput" autocomplete="off" placeholder="合言葉を入力">
+    <div id="passError"></div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="passOk" style="width:100%">🚀 はじめる</button></div>
+  </div>
+</div>
+
+<!-- 見本 -->
+<div class="modal" id="sampleModal">
+  <div class="box">
+    <div class="row"><h2 class="step-head" style="margin:0"><span class="step-num mint">📄</span>見本の食事箋（氏名は消してあります）</h2><div class="spacer"></div><button class="btn sec" id="sampleClose">閉じる</button></div>
+    <p class="sub">見本を選ぶと、紙の提出日を今日とみなして日付をずらして読みます。氏名は写っていないので、利用者は先に選んでください。</p>
+    <div class="samples" id="sampleList"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="modal" id="settingsModal">
+  <div class="box" style="max-width:520px">
+    <div class="row"><h2 class="step-head" style="margin:0"><span class="step-num berry">⚙️</span>設定</h2><div class="spacer"></div><button class="btn sec" id="settingsClose">閉じる</button></div>
+    <h3>最初の状態に戻す</h3>
+    <p class="sub">予定・依頼・用語集をすべて消し、今日から2週間の最初の状態に作り直します。開いている全員に効きます。</p>
+    <button class="btn ng" id="resetBtn">🔄 最初の状態に戻す</button>
+    <h3>合言葉</h3>
+    <button class="btn sec" id="passReset">🔑 合言葉を入れ直す</button>
+    <h3>AI</h3>
+    <p class="sub" id="aiInfo"></p>
+    <h3>ほかのページ</h3>
+    <p class="sub"><a href="mic-test.html">🎤 マイク確認テスト</a></p>
+  </div>
+</div>
+
+<!-- 利用者の候補（右から出るパネル） -->
+<div class="picker-back" id="pickerBack"></div>
+<aside class="picker" id="picker" aria-hidden="true">
+  <div class="picker-head">
+    <h2>👤 利用者を選ぶ</h2>
+    <span class="spacer"></span>
+    <button class="btn sec" id="pickerClose">閉じる</button>
+  </div>
+  <div class="picker-msg" id="pickerMsg"></div>
+  <div id="pickerHits"></div>
+  <div id="pickerAll">
+    <input type="text" id="pickerSearch" placeholder="名前・読みで絞り込む（例：さとう）" autocomplete="off">
+    <div class="floors" id="pickerFloors"></div>
+    <div class="small" id="pickerCount"></div>
+    <div class="picker-list" id="pickerList"></div>
+  </div>
+  <button class="link" id="pickerShowAll" hidden>ほかの人を探す（全員から選ぶ）</button>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// GAS のやり取りの口（個人のアカウント。版を上げても URL は変わらない）
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbx2t8WGcKQMOYhM5AM-IGgfU_oOtMKy5gi0U9WAZ17PHU-DNBNIhi0I_4J-tjXxo5KL/exec';
+var POLL_SECONDS = 30;
+
+var S = {                       // 画面の状態
+  passphrase: '', data: null, userId: '', image: null, sampleId: '', inputMethod: '文',
+  draftId: '', result: null, lastChanged: [], polling: null, page: 'care', seenRequests: {}
+};
+
+// ---------- 小さな道具 ----------
+function $(id) { return document.getElementById(id); }
+function el(tag, attrs, kids) {
+  var e = document.createElement(tag);
+  Object.keys(attrs || {}).forEach(function (k) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'text') e.textContent = attrs[k];
+    else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  });
+  (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return e;
+}
+function store(key, val) { try { if (val === undefined) return localStorage.getItem(key); if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, val); } catch (e) { return null; } }
+function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); setTimeout(function () { t.classList.remove('on'); }, 3500); }
+function celebrate() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var colors = ['#ff6b4a', '#ffd166', '#34d399', '#38bdf8', '#ff4d8d', '#a78bfa'];
+  for (var i = 0; i < 18; i++) {
+    var p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = (10 + Math.random() * 80) + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.25) + 's';
+    p.style.animationDuration = (1.05 + Math.random() * 0.6) + 's';
+    document.body.appendChild(p);
+    setTimeout(function (node) { return function () { node.remove(); }; }(p), 1900);
+  }
+}
+function newDraftId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'd' + Date.now() + Math.random().toString(16).slice(2); }
+function wd(dateStr) { return '日月火水木金土'.charAt(new Date(dateStr + 'T00:00:00+09:00').getDay()); }
+function md(dateStr) { var p = dateStr.split('-'); return Number(p[1]) + '/' + Number(p[2]); }
+function userById(id) { return (S.data.users || []).find(function (u) { return u['利用者ID'] === id; }); }
+function showError(boxId, msg) { var b = $(boxId); b.innerHTML = ''; if (msg) b.appendChild(el('div', { class: 'err', text: msg })); }
+
+// GAS を呼ぶ。text/plain で送り、ブラウザの事前の問い合わせを起こさない
+function api(action, payload) {
+  var body = Object.assign({ action: action, passphrase: S.passphrase }, payload || {});
+  return fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    .then(function (res) { if (!res.ok) throw new Error('GAS の呼び出しに失敗しました（HTTP ' + res.status + '）'); return res.json(); })
+    .then(function (data) { if (!data.ok) throw new Error(data.error || '不明なエラー'); return data; });
+}
+
+// ---------- 合言葉・初めの読み込み ----------
+function askPass(msg) {
+  $('passModal').classList.add('on');
+  showError('passError', msg || '');
+  setTimeout(function () { $('passInput').focus(); }, 50);
+}
+$('passOk').addEventListener('click', function () {
+  S.passphrase = $('passInput').value.trim();
+  if (!S.passphrase) return;
+  $('passOk').disabled = true;
+  api('getState').then(function (data) {
+    store('meal-slip-pass', S.passphrase);
+    $('passModal').classList.remove('on');
+    applyState(data);
+  }).catch(function (err) { showError('passError', err.message); })
+    .then(function () { $('passOk').disabled = false; });
+});
+$('passInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('passOk').click(); });
+
+function start() {
+  S.passphrase = store('meal-slip-pass') || '';
+  if (!S.passphrase) { askPass(); return; }
+  api('getState').then(applyState).catch(function (err) {
+    if (/合言葉/.test(err.message)) { store('meal-slip-pass', null); askPass(err.message); }
+    else toast(err.message);
+  });
+}
+
+function applyState(data) {
+  S.data = data;
+  renderMe(); renderTarget(); renderRecent(); renderMasked(); renderKitchen(); renderGlossary();
+  $('aiInfo').textContent = '呼び出し口：' + data.provider + '／モデル：' + data.model;
+  $('otherCount').textContent = data.otherCount;
+}
+
+// ---------- 画面の切り替え ----------
+$('tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  S.page = b.dataset.p;
+  document.querySelectorAll('#tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+  document.querySelectorAll('.page').forEach(function (x) { x.classList.toggle('on', x.id === S.page); });
+  if (S.page === 'kitchen') { refresh(); startPolling(); } else stopPolling();
+  if (S.page === 'glossary') refresh();
+});
+
+// 「あなた」（入れた人・承認した人）
+function renderMe() {
+  var sel = $('me'); var cur = store('meal-slip-me') || '';
+  sel.innerHTML = '';
+  S.data.staff.forEach(function (s) { sel.appendChild(el('option', { value: s['氏名'], text: s['氏名'] })); });
+  if (cur) sel.value = cur;
+}
+$('me').addEventListener('change', function () { store('meal-slip-me', $('me').value); });
+
+// ---------- 介護職員：利用者の選び方 ----------
+// 入力の文から、名簿の名前をキーワードで探す（生成AIは使わない）。
+// 見つかった人を右のパネルに候補として出し、職員が1人を選ぶ。候補が1人でも自動では決めない。
+
+// 「山田 花子」→ 山田花子・山田 花子・山田・花子。読みは、ひらがなとカタカナの両方（2文字以上だけ。GAS のマスクと同じ決まり）
+function toKatakana(s) { return s.replace(/[ぁ-ゖ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) + 0x60); }); }
+function toHiragana(s) { return s.replace(/[ァ-ヶ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); }); }
+function nameVariants(name, reading) {
+  var out = [];
+  [name, reading].forEach(function (n) {
+    if (!n) return;
+    var parts = n.split(/[\s　]+/).filter(Boolean);
+    out.push(n, parts.join(''), parts.join('　'));
+    parts.forEach(function (p) { out.push(p); });
+    if (n === reading) {
+      out.push(toKatakana(n), toKatakana(parts.join('')));
+      parts.forEach(function (p) { out.push(toKatakana(p)); });
+    }
+  });
+  return Array.from(new Set(out.filter(function (v) { return v && v.length >= 2; })));
+}
+
+// 文の中に出てくる利用者を探す。長く一致した人ほど上に並べる（フルネーム ＞ 姓だけ）
+function findUsersInText(text) {
+  var t = (text || '').replace(/[\s　]+/g, '');
+  if (!t) return [];
+  var hits = [];
+  S.data.users.forEach(function (u) {
+    var best = '';
+    nameVariants(u['氏名'], u['読み']).forEach(function (v) {
+      var vv = v.replace(/[\s　]+/g, '');
+      if (t.indexOf(vv) >= 0 && vv.length > best.length) best = vv;
+    });
+    if (best) {
+      var full = [u['氏名'], u['読み'], toKatakana(u['読み'] || '')].map(function (x) { return x.replace(/[\s　]+/g, ''); });
+      hits.push({ user: u, word: best, full: full.indexOf(best) >= 0 });
+    }
+  });
+  // フルネームで一致した人がいれば、その人だけにする（姓だけ・名だけで一致した人は出さない）
+  if (hits.some(function (x) { return x.full; })) hits = hits.filter(function (x) { return x.full; });
+  hits.sort(function (a, b) { return b.word.length - a.word.length || a.user['読み'].localeCompare(b.user['読み'], 'ja'); });
+  return hits;
+}
+
+function isEnded(u) { return u['利用終了日'] && u['利用終了日'] < S.data.today; }
+function candButton(u, word) {
+  var name = u['氏名'];
+  var nameEl = el('b', {});
+  var j = word ? name.indexOf(word) : -1;
+  if (word && j < 0 && name.replace(/[\s　]+/g, '') === word) { word = name; j = 0; }   // 「佐藤花子」と書かれたら「佐藤 花子」全体に印
+  if (j >= 0) {
+    nameEl.appendChild(document.createTextNode(name.slice(0, j)));
+    nameEl.appendChild(el('mark', { text: word }));
+    nameEl.appendChild(document.createTextNode(name.slice(j + word.length)));
+  } else nameEl.textContent = name;
+  return el('button', { class: 'cand' + (u['利用者ID'] === S.userId ? ' on' : ''), onclick: function () { chooseUser(u['利用者ID']); } }, [
+    nameEl,
+    el('span', { text: u['読み'] + '／' + u['フロア'] + '・' + u['利用区分'] + (isEnded(u) ? '・利用終了' : '') + (word && j < 0 ? '／「' + word + '」で一致' : '') })
+  ]);
+}
+
+S.picker = { floor: '', dismissedKey: '' };
+function openPicker(mode, hits) {
+  // mode：'hits'＝入力から見つかった候補だけ／'all'＝全員から探す（hits が 'none' なら「見つからなかった」と添える）
+  var msg = $('pickerMsg'); msg.innerHTML = ''; msg.className = 'picker-msg';
+  var hitBox = $('pickerHits'); hitBox.innerHTML = '';
+  if (mode === 'hits') {
+    msg.textContent = '入力から ' + hits.length + ' 人の候補が見つかりました。対象の方を1人選んでください。';
+    hits.forEach(function (h) { hitBox.appendChild(candButton(h.user, h.word)); });
+    $('pickerAll').hidden = true; $('pickerShowAll').hidden = false;
+  } else {
+    if (hits === 'none') { msg.className = 'picker-msg note'; msg.textContent = '入力の中に、名簿の名前が見つかりませんでした。下の一覧から選んでください。'; }
+    $('pickerAll').hidden = false; $('pickerShowAll').hidden = true;
+    S.picker.floor = ''; $('pickerSearch').value = '';   // 開くたびに、すべての人・絞り込み無しから
+    renderPickerList();
+  }
+  hitBox.hidden = mode !== 'hits';
+  $('picker').classList.add('on'); $('picker').setAttribute('aria-hidden', 'false');
+  $('pickerBack').classList.add('on');
+}
+function closePicker() {
+  $('picker').classList.remove('on'); $('picker').setAttribute('aria-hidden', 'true');
+  $('pickerBack').classList.remove('on');
+}
+function renderPickerList() {
+  var floors = Array.from(new Set(S.data.users.map(function (u) { return u['フロア']; }))).sort();
+  var fb = $('pickerFloors'); fb.innerHTML = '';
+  [''].concat(floors).forEach(function (f) {
+    fb.appendChild(el('button', { class: S.picker.floor === f ? 'on' : '', text: f || 'すべて', onclick: function () { S.picker.floor = f; renderPickerList(); } }));
+  });
+  var q = $('pickerSearch').value.replace(/[\s　]+/g, '');
+  var qh = toHiragana(q);
+  var list = S.data.users.filter(function (u) {
+    if (S.picker.floor && u['フロア'] !== S.picker.floor) return false;
+    if (!q) return true;
+    return u['氏名'].replace(/[\s　]+/g, '').indexOf(q) >= 0 || toHiragana(u['読み'].replace(/[\s　]+/g, '')).indexOf(qh) >= 0;
+  }).sort(function (a, b) { return a['読み'].localeCompare(b['読み'], 'ja'); });
+  $('pickerCount').textContent = list.length + ' 人（読みの順）';
+  var box = $('pickerList'); box.innerHTML = '';
+  list.forEach(function (u) { box.appendChild(candButton(u, '')); });
+  if (!list.length) box.appendChild(el('p', { class: 'sub', text: '当てはまる人がいません。' }));
+}
+function chooseUser(id) {
+  S.userId = id; S.recentOffset = 0;
+  closePicker(); renderTarget(); renderRecent(); renderMasked();
+  showError('careError', '');
+}
+function renderTarget() {
+  var u = S.userId && userById(S.userId);
+  var n = $('targetName');
+  n.className = u ? '' : 'none';
+  n.textContent = u ? u['氏名'] + '様（' + u['フロア'] + '・' + u['利用区分'] + (isEnded(u) ? '・利用終了' : '') + '）' : 'まだ選んでいません';
+}
+$('pickManual').addEventListener('click', function () { $('pickerSearch').value = ''; openPicker('all'); setTimeout(function () { $('pickerSearch').focus(); }, 250); });
+$('pickerShowAll').addEventListener('click', function () { $('pickerSearch').value = ''; openPicker('all'); });
+$('pickerClose').addEventListener('click', closePicker);
+$('pickerBack').addEventListener('click', closePicker);
+$('pickerSearch').addEventListener('input', renderPickerList);
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('picker').classList.contains('on')) closePicker(); });
+
+// 入力が止まったら探して、必ずパネルを出す（文が前に出したときから変わっていれば。同じ文のままなら出し直さない）
+// - 文字：0.8 秒止まったら。日本語の変換中なら、変換が終わるのを待ってから出す（変換中に止まっても取りこぼさない）
+// - 声：話し終えたら ／ 文字の欄から離れたとき（ほかの所を押したとき）もすぐ出す
+var searchTimer = null, composing = false;
+S.picker.lastText = '';
+function searchFromText(force) {
+  if (!S.data) return;
+  var text = $('inputText').value.trim();
+  renderMasked();
+  if (!text) return;
+  if (S.userId && !force) return;   // 一度選んだら、文を直してもパネルは出さない（選び直すときは「人を手動で選ぶ」）
+  if (!force && text === S.picker.lastText) return;
+  S.picker.lastText = text;
+  var hits = findUsersInText(text);
+  if (hits.length) openPicker('hits', hits);
+  else openPicker('all', 'none');
+}
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  var waited = 0;
+  function tick() {
+    if (activeRec) { searchTimer = setTimeout(tick, 800); return; }        // 録音中は、話し終えるまで待つ
+    // 変換中なら1回だけ待ち直し、それでも変換中のままなら出す（タブレットのキーボードは、入力欄にいる間ずっと「変換中」のことがある）
+    if (composing && waited < 1) { waited += 1; searchTimer = setTimeout(tick, 800); return; }
+    searchFromText(false);
+  }
+  searchTimer = setTimeout(tick, 800);
+}
+$('inputText').addEventListener('compositionstart', function () { composing = true; });
+$('inputText').addEventListener('compositionend', function () { composing = false; scheduleSearch(); });
+$('inputText').addEventListener('input', function (e) {
+  if (e.isComposing === false) composing = false;   // 変換の終わりの合図が来ない端末でも、止まったままにしない
+  renderMasked();
+  scheduleSearch();
+});
+$('inputText').addEventListener('change', function () { if (!activeRec) { clearTimeout(searchTimer); searchFromText(false); } });
+
+// AIにはこう送る（GAS と同じ決まりで置き換えた文を見せる。実際の置き換えは GAS が行う）
+// 選んだ利用者は「利用者A」、話に出てきたほかの利用者は出てきた順に「利用者B」「利用者C」…、職員は「職員1」など
+function aliasLetters(n) {
+  var s = ''; n += 1;
+  while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+function maskForPreview(text) {
+  var entries = [];
+  S.data.users.forEach(function (u) {
+    var kind = u['利用者ID'] === S.userId ? 'selected' : 'user';
+    nameVariants(u['氏名'], u['読み']).forEach(function (v) { entries.push({ word: v, kind: kind, id: u['利用者ID'] }); });
+  });
+  S.data.staff.forEach(function (s, i) {
+    nameVariants(s['氏名'], s['読み']).forEach(function (v) { entries.push({ word: v, kind: 'staff', alias: '職員' + (i + 1) }); });
+  });
+  var keyToAlias = {}, next = 1, out = '', i = 0;
+  while (i < text.length) {
+    var cands = entries.filter(function (e) { return text.startsWith(e.word, i); });
+    if (!cands.length) { out += text.charAt(i); i += 1; continue; }
+    var maxLen = Math.max.apply(null, cands.map(function (e) { return e.word.length; }));
+    var longest = cands.filter(function (e) { return e.word.length === maxLen; });
+    var word = longest[0].word, alias;
+    if (longest.some(function (e) { return e.kind === 'selected'; })) alias = '利用者A';
+    else if (longest.every(function (e) { return e.kind === 'staff'; })) alias = longest[0].alias;
+    else {
+      var ids = Array.from(new Set(longest.filter(function (e) { return e.kind === 'user'; }).map(function (e) { return e.id; })));
+      var key = ids.length === 1 ? 'id:' + ids[0] : 'word:' + word;
+      if (!keyToAlias[key]) { keyToAlias[key] = '利用者' + aliasLetters(next); next += 1; }
+      alias = keyToAlias[key];
+    }
+    out += alias; i += word.length;
+  }
+  return out;
+}
+function renderMasked() {
+  var box = $('maskedBox');
+  var text = $('inputText').value.trim();
+  if (!S.data || !S.userId || !text) { box.hidden = true; return; }
+  box.innerHTML = '';
+  box.appendChild(el('b', { text: 'AIにはこう送ります（名前は伏せ、対象の方を「利用者A」、話に出たほかの方を出てきた順に「利用者B」「利用者C」…にします）' }));
+  box.appendChild(el('div', { text: maskForPreview(text) }));
+  box.hidden = false;
+}
+
+// 参考：選んだ利用者の予定を、文字の欄の下に RECENT_DAYS 日ずつ出す（初めは今日から。前後に送れる）
+var RECENT_DAYS = 7;
+S.recentOffset = 0;
+function renderRecent() {
+  var box = $('recentBox');
+  var u = S.userId && userById(S.userId);
+  if (!u) { box.hidden = true; return; }
+  box.innerHTML = '';
+  var days = S.data.days;
+  var maxOffset = Math.max(0, Math.floor((days.length - 1) / RECENT_DAYS) * RECENT_DAYS);
+  S.recentOffset = Math.min(Math.max(0, S.recentOffset), maxOffset);
+  var shown = days.slice(S.recentOffset, S.recentOffset + RECENT_DAYS);
+  var prev = el('button', { class: 'pager', text: '◀', title: '前の' + RECENT_DAYS + '日', onclick: function () { S.recentOffset -= RECENT_DAYS; renderRecent(); } });
+  var next = el('button', { class: 'pager', text: '▶', title: '次の' + RECENT_DAYS + '日', onclick: function () { S.recentOffset += RECENT_DAYS; renderRecent(); } });
+  prev.disabled = S.recentOffset <= 0;
+  next.disabled = S.recentOffset >= maxOffset;
+  box.appendChild(el('div', { class: 'head row' }, [
+    el('span', { text: '参考：' + u['氏名'] + '様の予定' }), el('span', { class: 'spacer' }),
+    prev, el('span', { class: 'range', text: md(shown[0]) + '〜' + md(shown[shown.length - 1]) }), next
+  ]));
+  box.appendChild(el('div', { class: 'small', text: '主食：' + u['主食'] + '（' + u['主食の量'] + '）／副食：' + u['副食'] + '／とろみ：' + u['とろみ'] + '／おやつ：' + u['おやつ'] + '／' + u['利用区分'] + (u['利用終了日'] && u['利用終了日'] < S.data.today ? '（' + u['利用終了日'] + ' で利用終了）' : '') }));
+  var rows = S.data.schedule.filter(function (x) { return x['利用者ID'] === u['利用者ID']; });
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  shown.forEach(function (d) {
+    var tr = el('tr', { class: d === S.data.today ? 'today' : '' }, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' + (d === S.data.today ? ' 今日' : '') })]);
+    S.data.meals.forEach(function (m) {
+      var r = rows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      if (!r) { tr.appendChild(el('td', { class: 'no', text: '―' })); return; }
+      var eat = r['食べる'] === 'はい';
+      var kids = [eat ? '○' : '×'];
+      // いつもと違う形態・量は小さく添える
+      var diff = ['主食', '主食の量', '副食', 'おやつ'].filter(function (k) { return r[k] !== u[k]; }).map(function (k) { return r[k]; });
+      if (!eat && r['理由']) kids.push(el('span', { class: 'why', text: r['理由'] }));
+      else if (diff.length) kids.push(el('span', { class: 'why', text: diff.join('・') }));
+      tr.appendChild(el('td', { class: eat ? '' : 'no' }, kids));
+    });
+    tbl.appendChild(tr);
+  });
+  box.appendChild(el('div', { class: 'tbl-wrap' }, [tbl]));
+  var waiting = S.data.requests.filter(function (r) { return r['利用者ID'] === u['利用者ID'] && r['状態'] === '受付'; });
+  if (waiting.length) box.appendChild(el('div', { class: 'small', text: '厨房の確認待ちの依頼が ' + waiting.length + ' 件あります（この表にはまだ入っていません）' }));
+  box.hidden = false;
+}
+
+// 声（ブラウザ標準の音声認識）
+var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+var activeRec = null;
+function setupMic(button, target, onStart) {
+  if (!Rec) {
+    button.hidden = true;
+    return false;
+  }
+  button.addEventListener('click', function () {
+    if (activeRec) { activeRec.stop(); return; }
+    var rec = new Rec(); rec.lang = 'ja-JP'; rec.interimResults = true; rec.continuous = true;
+    var base = target.value ? target.value + ' ' : '';
+    var finalText = '';
+    rec.onresult = function (ev) {
+      var interim = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript;
+      }
+      target.value = base + finalText + interim;
+    };
+    rec.onerror = function (ev) { toast('音声認識のエラー：' + ev.error); };
+    rec.onend = function () { activeRec = null; button.classList.remove('rec'); button.textContent = '🎤 話す'; if (target === $('inputText')) searchFromText(false); };
+    rec.start(); activeRec = rec;
+    button.classList.add('rec'); button.textContent = '■ 止める';
+    if (onStart) onStart();
+  });
+  return true;
+}
+if (!setupMic($('micBtn'), $('inputText'), function () { S.inputMethod = '声'; })) {
+  $('micHint').textContent = 'このブラウザでは画面のマイクが使えません。文字の欄を押し、キーボードのマイクで話してください。';
+}
+
+// 写真（見本・カメラ）
+$('sampleBtn').addEventListener('click', function () {
+  var list = $('sampleList'); list.innerHTML = '';
+  S.data.samples.forEach(function (s) {
+    list.appendChild(el('button', { onclick: function () { pickSample(s); } }, [s.label, el('span', { text: '提出日 ' + s.submittedDate })]));
+  });
+  $('sampleModal').classList.add('on');
+});
+$('sampleClose').addEventListener('click', function () { $('sampleModal').classList.remove('on'); });
+function pickSample(s) {
+  $('sampleModal').classList.remove('on');
+  api('getSample', { sampleId: s.id }).then(function (d) {
+    S.sampleId = s.id; S.image = null; S.inputMethod = '見本';
+    showPhoto('data:' + d.mediaType + ';base64,' + d.data, '見本：' + s.label + '（提出日 ' + s.submittedDate + ' を今日とみなして読みます）');
+  }).catch(function (err) { toast(err.message); });
+}
+$('camera').addEventListener('change', function () {
+  var f = $('camera').files[0]; if (!f) return;
+  shrink(f, 1400, 0.8).then(function (dataUrl) {
+    S.image = { mediaType: 'image/jpeg', data: dataUrl.split(',')[1] }; S.sampleId = ''; S.inputMethod = '写真';
+    showPhoto(dataUrl, '撮った写真（' + f.name + '）');
+  }).catch(function (err) { toast('写真を読めませんでした：' + err.message); });
+  $('camera').value = '';
+});
+function shrink(file, longSide, quality) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image(); var url = URL.createObjectURL(file);
+    img.onload = function () {
+      var r = Math.min(1, longSide / Math.max(img.width, img.height));
+      var c = document.createElement('canvas'); c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = function () { reject(new Error('画像として読めません')); };
+    img.src = url;
+  });
+}
+function showPhoto(src, label) { $('photoImg').src = src; $('photoLabel').textContent = label; $('photoPrev').hidden = false; }
+// 入力を消す：文・写真・AIの読み取り・対象の利用者を空にして、最初からやり直せるようにする
+$('clearBtn').addEventListener('click', function () {
+  clearTimeout(searchTimer);
+  $('inputText').value = '';
+  S.image = null; S.sampleId = ''; S.inputMethod = '文'; $('photoPrev').hidden = true;
+  S.result = null; S.draftId = ''; $('planCard').hidden = true; $('planBody').innerHTML = '';
+  S.userId = ''; S.recentOffset = 0; S.picker.lastText = '';
+  showError('careError', '');
+  closePicker(); renderTarget(); renderRecent(); renderMasked();
+  $('inputText').focus();
+  toast('入力を消しました');
+});
+$('photoClear').addEventListener('click', function () { S.image = null; S.sampleId = ''; $('photoPrev').hidden = true; });
+
+// AIに読み取ってもらう（初回）
+$('interpretBtn').addEventListener('click', function () {
+  showError('careError', '');
+  if (!S.userId) { showError('careError', '対象の利用者を選んでください'); searchFromText(true); if (!$('picker').classList.contains('on')) openPicker('all'); return; }
+  var text = $('inputText').value.trim();
+  if (!text && !S.image && !S.sampleId) { showError('careError', '話すか、写真を入れるか、文字を入れてください'); return; }
+  if (S.inputMethod === '文' && text && !S.image && !S.sampleId) S.inputMethod = '文';
+  S.draftId = newDraftId();
+  callInterpret({ text: text }, false);
+});
+
+// 読み直し中の帯が、上に固定した見出しに隠れないよう、見出しの高さを覚えておく
+function setHeadHeight() {
+  var hd = document.querySelector('header');
+  var h = getComputedStyle(hd).position === 'sticky' ? hd.offsetHeight : 0;
+  document.documentElement.style.setProperty('--head-h', h + 'px');
+}
+setHeadHeight(); window.addEventListener('resize', setHeadHeight);
+
+// 直前に押したボタン（読み取り中の印を付けるため）
+S.lastBtn = null;
+document.addEventListener('click', function (e) { S.lastBtn = e.target.closest('button'); }, true);
+function markBusy(btn, label) {
+  if (!btn) return;
+  btn.dataset.label = btn.textContent;
+  btn.classList.add('busy');
+  btn.textContent = label;
+}
+function unmarkBusy(btn) {
+  if (!btn || !btn.classList.contains('busy')) return;
+  btn.classList.remove('busy', 'chosen');
+  btn.textContent = btn.dataset.label;
+}
+
+function callInterpret(extra, isCorrection) {
+  var payload = Object.assign({
+    userId: S.userId, draftId: S.draftId, inputMethod: S.inputMethod,
+    text: $('inputText').value.trim(), sampleId: S.sampleId || '', image: S.image
+  }, extra);
+  if (isCorrection && S.result) payload.previousPlan = { masked: S.result.masked };
+  var btn = S.lastBtn && (S.lastBtn === $('interpretBtn') || $('planBody').contains(S.lastBtn)) ? S.lastBtn : null;
+  if (btn && btn.parentNode && btn.parentNode.classList.contains('choices')) btn.classList.add('chosen');   // 選んだ答えを色で残す
+  markBusy(btn, '読み取り中…');
+  showError('careError', '');
+  if (isCorrection) { $('planLoading').classList.add('on'); $('planBody').classList.add('waiting'); }
+  else $('careLoading').classList.add('on');
+  $('interpretBtn').disabled = true;
+  document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = true; });
+  return api('interpret', payload).then(function (r) {
+    var prev = S.result;
+    S.result = r;
+    renderPlan(prev);
+  }).catch(function (err) {
+    showError('careError', err.message);
+    if (isCorrection) toast('読み取りに失敗しました：' + err.message);
+    unmarkBusy(btn);
+    document.querySelectorAll('#planBody button').forEach(function (b) { b.disabled = false; });
+  }).then(function () {
+    $('careLoading').classList.remove('on');
+    $('planLoading').classList.remove('on'); $('planBody').classList.remove('waiting');
+    $('interpretBtn').disabled = false;
+    unmarkBusy($('interpretBtn'));
+  });
+}
+
+function opText(op) {
+  var range = md(op.startDate) + '（' + wd(op.startDate) + '）' + op.startMeal + (op.endDate ? ' 〜 ' + md(op.endDate) + '（' + wd(op.endDate) + '）' + op.endMeal : ' から（終わりは未定）');
+  var meals = op.meals.length === 4 ? 'すべての食事' : op.meals.join('・') + 'だけ';
+  var s = op.kind + '：' + range + '、' + meals;
+  if (op.kind === '形態や量を変える') s += '、' + op.item + 'を「' + op.newValue + '」に';
+  if (op.reason) s += '（' + op.reason + '）';
+  if (op.cancelRequestId) s += ' ／ 取り消す依頼 ' + op.cancelRequestId;
+  return s;
+}
+
+function renderPlan(prev) {
+  var r = S.result; var p = r.plan; var body = $('planBody'); body.innerHTML = '';
+  $('planCard').hidden = false;
+  var u = userById(p.userId);
+  // 読み取った内容を先に、そのすぐ下にだれの変更かを大きく出す（内容を読んでから、人を取り違えていないか確かめられるように）
+  var who = u ? u['氏名'] + '様' : '（利用者が分かりません）';
+  body.appendChild(el('div', { class: 'explain', text: p.explanation }));
+  body.appendChild(el('div', { class: 'plan-who' }, [
+    el('span', { class: 'lab', text: '対象の利用者' }),
+    el('b', { text: who }),
+    el('span', { class: 'meta', text: u ? u['フロア'] + '・' + u['利用区分'] + '／入力：' + S.inputMethod : '' })
+  ]));
+  if (p.operations.length) {
+    var ul = el('ul', {});
+    p.operations.forEach(function (op) { ul.appendChild(el('li', { text: opText(op) })); });
+    body.appendChild(ul);
+  }
+  body.appendChild(el('p', { class: 'sub', text: 'そう読んだ理由：' + p.rationale }));
+  if (r.answered) body.appendChild(el('div', { class: 'okbox', text: 'AIの質問「' + r.answered.question + '」に「' + r.answered.answer + '」と答えました。' }));
+  r.check.errors.forEach(function (m) { body.appendChild(el('div', { class: 'err', text: m })); });
+  r.check.warnings.forEach(function (m) { body.appendChild(el('div', { class: 'note', text: m })); });
+
+  // 聞き返し
+  var pending = false;
+  if (p.question && p.question.text) {
+    pending = true;
+    var q = el('div', { class: 'question' }, [el('p', { text: '🤔 ' + p.question.text })]);
+    var ch = el('div', { class: 'choices' });
+    // 選択肢には、選んだときの変更案が最初から付いている。押したらAIを呼ばずにその案に切り替える。
+    // 答えだけでは中身が決まらない選択肢（followUp）だけ、もう一度AIに考えてもらう
+    p.question.choices.forEach(function (c) {
+      ch.appendChild(el('button', { text: c.label, onclick: function () {
+        if (c.followUp) callInterpret({ correction: c.label }, true);
+        else applyChoice(c);
+      } }));
+    });
+    // 選択肢の最後に「話す」。押すと下の「直す」の欄が画面のいちばん下に来るまで送り、そのまま録音を始める
+    // （画面のマイクが使えない端末では「書いて答える」にして、書く欄にカーソルを置く）
+    ch.appendChild(el('button', { class: 'speak', text: Rec ? '🎤 話す' : '✏ 書いて答える', onclick: function () {
+      corrBox.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      if (Rec && !corrMic.hidden) { if (!activeRec) corrMic.click(); }
+      else corr.focus({ preventScroll: true });
+    } }));
+    q.appendChild(ch);
+    q.appendChild(el('p', { class: 'sub', text: Rec ? '選択肢に無ければ「話す」を押して答えてください（下の欄に書いても答えられます）。' : '選択肢に無ければ「書いて答える」を押して、下の欄に書いてください。' }));
+    body.appendChild(q);
+  }
+  // 知らない言葉
+  (p.unknownTerms || []).forEach(function (t) {
+    pending = true;
+    var input = el('input', { type: 'text', placeholder: '例：膳は出さないが、食数には数える' });
+    var box = el('div', { class: 'question' }, [
+      el('p', { text: '📖 「' + t.term + '」の意味を教えてください。' + (t.question ? '（' + t.question + '）' : '') }),
+      input,
+      el('div', { class: 'row', style: 'margin-top:8px' }, [el('button', { class: 'btn', text: '意味を伝える', onclick: function () {
+        var meaning = input.value.trim(); if (!meaning) return;
+        api('proposeTerm', { term: t.term, meaning: meaning, draftId: S.draftId }).then(function (d) {
+          S.data.glossary = d.glossary; renderGlossary();
+          toast('「' + t.term + '」を用語集の候補に入れました');
+          return callInterpret({ correction: '「' + t.term + '」は「' + meaning + '」という意味です。' }, true);
+        }).catch(function (err) { showError('careError', err.message); });
+      } })])
+    ]);
+    body.appendChild(box);
+  });
+
+  // 変更前・変更後の予定表。AIの質問に答え終えたら、マスを押して○×を手で直せる
+  r.edits = r.edits || {};
+  var editable = !pending && !!r.preview;
+  var tblBox = el('div', { class: 'tbl-wrap' });
+  var editNote = el('p', { class: 'small' });
+  function drawPlanTable() {
+    tblBox.innerHTML = ''; tblBox.appendChild(planTable(r, editable, drawPlanTable));
+    var sum = editsSummary(r);
+    editNote.textContent = sum ? '手で直した所：' + sum + '（厨房への説明の後ろに添えて送ります）' : '';
+  }
+  if (r.preview && (r.preview.changed.length || editable)) {
+    body.appendChild(el('h3', { text: who + 'の予定表（色の付いたところが変わります）' }));
+    if (editable) body.appendChild(el('p', { class: 'sub', text: 'マスを押すと、○（食べる）と×（食べない）を手で直せます。点線のマスが手で直した所です。' }));
+    body.appendChild(tblBox); body.appendChild(editNote);
+    drawPlanTable();
+  }
+  // 厨房への説明（依頼全体の説明）。AIの文を初めに入れ、送る前に直せる
+  if (editable) {
+    if (r.memo == null) r.memo = p.explanation;
+    body.appendChild(el('h3', { text: '厨房への説明（直せます）' }));
+    body.appendChild(el('textarea', { class: 'memo', rows: 2, oninput: function (e) { r.memo = e.target.value; } }, [r.memo]));
+  }
+
+  // 直す
+  var corr = el('textarea', { rows: 2, placeholder: '例：違う、今回だけじゃなくて、これからずっと' });
+  var corrMic = el('button', { class: 'mic', text: '🎤 話す' });
+  var corrBox = el('div', { class: 'card', style: 'background:var(--bg);margin-top:12px' }, [
+    el('h3', { text: '直す（話すか、書いてください）' }), el('div', { class: 'row' }, [corrMic]), corr,
+    el('div', { class: 'row', style: 'margin-top:8px' }, [el('button', { class: 'btn sec', text: '直しを伝える', onclick: function () {
+      var c = corr.value.trim(); if (!c) return; callInterpret({ correction: c }, true);
+    } })])
+  ]);
+  setupMic(corrMic, corr);
+
+  var canSend = !pending && !r.check.errors.length && p.operations.length > 0;
+  var sendBtn = el('button', { class: 'btn', text: 'はい、' + who + 'の変更を厨房へ送る', onclick: function () { sendRequest(sendBtn); } });
+  sendBtn.disabled = !canSend;
+  body.appendChild(el('div', { class: 'row', style: 'margin-top:12px' }, [sendBtn,
+    el('span', { class: 'small', text: canSend ? '' : (pending ? 'AIの質問に答えてから送れます' : '直すところがあります') })]));
+  body.appendChild(corrBox);
+
+  if (p.transcription) body.appendChild(el('details', {}, [el('summary', { text: '写真から読み取った文' }), el('pre', { text: p.transcription })]));
+  body.appendChild(el('details', {}, [el('summary', { text: 'AIに送った文（氏名は置き換え済み）' }), el('pre', { text: r.sentText })]));
+  var u2 = r.usage ? '入力 ' + r.usage.input_tokens + '・出力 ' + r.usage.output_tokens + ' トークン' : '';
+  body.appendChild(el('p', { class: 'small', text: 'AI：' + r.model + '／' + r.seconds + ' 秒' + (u2 ? '／' + u2 : '') }));
+  // 読み取った内容と対象の利用者名が、上の見出しのすぐ下に来るように送る
+  var top = body.querySelector('.explain').getBoundingClientRect().top + window.scrollY - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--head-h')) || 0) - 12;
+  window.scrollTo({ top: top, behavior: 'smooth' });
+}
+
+// 予定表（日×食事）。after があれば変わった所に「前→後」を出す
+function cellText(row, before) {
+  var mark = row['食べる'] === 'はい' ? '○' : '×';
+  var t = mark;
+  if (before && before['食べる'] !== row['食べる']) t = (before['食べる'] === 'はい' ? '○' : '×') + '→' + mark;
+  ['主食', '主食の量', '副食', 'おやつ'].forEach(function (k) {
+    if (before && before[k] !== row[k]) t += ' ' + k + '：' + before[k] + '→' + row[k];
+  });
+  return t;
+}
+// maxDays を渡すと、今日からその日数だけ出す（変わる日がその先にあれば、そこまで伸ばす）
+var PLAN_DAYS = 10;   // 確認画面の予定表に出す日数
+function scheduleTable(beforeRows, afterRows, changed, maxDays) {
+  var rows = afterRows || beforeRows;
+  var days = S.data.days;
+  if (maxDays) {
+    var n = maxDays;
+    (changed || []).forEach(function (k) { var i = days.indexOf(k.split('#')[0]); if (i + 1 > n) n = i + 1; });
+    days = days.slice(0, n);
+  }
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  days.forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var a = rows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var b = beforeRows.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var isChg = changed && changed.indexOf(d + '#' + m) >= 0;
+      var td = el('td', { class: (isChg ? 'chg' : (a && a['食べる'] !== 'はい' ? 'no' : '')), text: a ? cellText(a, afterRows ? b : null) : '' });
+      if (a && a['食べる'] !== 'はい' && a['理由']) td.title = a['理由'];
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+  return tbl;
+}
+
+// 選択肢を選んだ：AIを呼ばずに、その選択肢に付いていた変更案に切り替える
+function applyChoice(c) {
+  var r = S.result, p = r.plan;
+  S.result = Object.assign({}, r, {
+    masked: Object.assign({}, r.masked, { operations: c.operations, explanation: c.maskedExplanation, question: { text: '', choices: [] } }),
+    plan: Object.assign({}, p, { operations: c.operations, explanation: c.explanation, question: { text: '', choices: [] } }),
+    check: c.check, preview: c.preview, answered: { question: p.question.text, answer: c.label },
+    edits: {}, memo: null
+  });
+  renderPlan(r);
+}
+
+// 変更案の表。手で直したマス（r.edits：'日付#食事' → 'はい'／'いいえ'）を、AIの案の上に重ねて出す
+function manualReason(r) {
+  var op = r.plan.operations.find(function (o) { return o.kind === '中止を登録' && o.reason; });
+  return op ? op.reason : '中止';
+}
+function finalRow(r, d, m) {
+  var a = r.preview.after.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+  var k = d + '#' + m;
+  if (!a || !(k in r.edits)) return a;
+  var eat = r.edits[k];
+  return Object.assign({}, a, { '食べる': eat, '理由': eat === 'はい' ? '' : manualReason(r) });
+}
+function editKeys(r) {
+  return Object.keys(r.edits || {}).sort(function (a, b) {
+    var pa = a.split('#'), pb = b.split('#');
+    return pa[0] < pb[0] ? -1 : pa[0] > pb[0] ? 1 : S.data.meals.indexOf(pa[1]) - S.data.meals.indexOf(pb[1]);
+  });
+}
+function editsSummary(r) {
+  return editKeys(r).map(function (k) {
+    var p = k.split('#'); return md(p[0]) + '（' + wd(p[0]) + '）' + p[1] + 'は' + (r.edits[k] === 'はい' ? '○' : '×');
+  }).join('、');
+}
+// 手で直したマスを、1食ずつの操作にする（AIの操作の後ろに足すので、後から当たるこちらが勝つ）
+function manualOps(r) {
+  return editKeys(r).map(function (k) {
+    var p = k.split('#'), eat = r.edits[k] === 'はい';
+    return { kind: eat ? '利用を始める' : '中止を登録', startDate: p[0], startMeal: p[1], endDate: p[0], endMeal: p[1], meals: [p[1]],
+      item: '', newValue: '', reason: eat ? '' : manualReason(r), cancelRequestId: '' };
+  });
+}
+function planTable(r, editable, onChange) {
+  var before = r.preview.before, days = S.data.days, n = PLAN_DAYS;
+  r.preview.changed.concat(Object.keys(r.edits)).forEach(function (k) { var i = days.indexOf(k.split('#')[0]); if (i + 1 > n) n = i + 1; });
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  days.slice(0, n).forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var k = d + '#' + m;
+      var a = finalRow(r, d, m);
+      var b = before.find(function (x) { return x['日付'] === d && x['食事'] === m; });
+      var isChg = a && b && ['食べる', '主食', '主食の量', '副食', 'おやつ'].some(function (c) { return a[c] !== b[c]; });
+      var cls = [isChg ? 'chg' : (a && a['食べる'] !== 'はい' ? 'no' : '')];
+      if (k in r.edits) cls.push('edited');
+      if (editable && a) cls.push('tap');
+      var td = el('td', { class: cls.join(' '), text: a ? cellText(a, b) : '' });
+      if (a && a['食べる'] !== 'はい' && a['理由']) td.title = a['理由'];
+      if (editable && a) td.addEventListener('click', function () {
+        if ($('planBody').classList.contains('waiting')) return;   // 読み直し中は直さない
+        var ai = r.preview.after.find(function (x) { return x['日付'] === d && x['食事'] === m; })['食べる'];
+        var next = a['食べる'] === 'はい' ? 'いいえ' : 'はい';
+        if (next === ai) delete r.edits[k]; else r.edits[k] = next;
+        onChange();
+      });
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+  return tbl;
+}
+
+function sendRequest(btn) {
+  var r = S.result;
+  var memo = (r.memo != null ? r.memo : r.plan.explanation).trim();
+  if (!memo) { showError('careError', '厨房への説明が空です。説明を入れてから送ってください'); toast('厨房への説明が空です'); return; }
+  var sum = editsSummary(r);
+  var ops = r.plan.operations.concat(manualOps(r));
+  var plan = Object.assign({}, r.plan, { operations: ops, explanation: memo + (sum ? '／手で直した所：' + sum : '') });
+  btn.disabled = true; markBusy(btn, '厨房へ送っています…');
+  api('submitRequest', {
+    plan: plan, masked: Object.assign({}, r.masked, { operations: ops }), draftId: S.draftId, inputMethod: S.inputMethod,
+    text: $('inputText').value.trim(), sentText: r.sentText, enteredBy: $('me').value
+  }).then(function (d) {
+    celebrate();
+    toast('🎉 厨房へ送りました（依頼 ' + d.requestId + '）' + (d.late ? '。締め切りを過ぎた食事があります。厨房へ電話で一報を入れてください' : ''));
+    S.result = null; S.image = null; S.sampleId = ''; S.inputMethod = '文';
+    $('inputText').value = ''; $('photoPrev').hidden = true; $('planCard').hidden = true;
+    // 次の連絡は別の方のことがあるので、対象の利用者を空に戻す（次に話したら、また候補のパネルが出る）
+    S.userId = ''; S.recentOffset = 0; S.picker.lastText = '';
+    renderTarget(); renderRecent(); renderMasked();
+    refresh();
+  }).catch(function (err) { showError('careError', err.message); unmarkBusy(btn); btn.disabled = false; });
+}
+
+// ---------- 厨房 ----------
+function refresh() {
+  return api('getState').then(function (data) { applyState(data); $('lastCheck').textContent = '最後に確かめた時刻 ' + data.now.slice(11, 16); })
+    .catch(function (err) { toast(err.message); });
+}
+$('refreshBtn').addEventListener('click', refresh);
+function startPolling() { stopPolling(); S.polling = setInterval(function () { if (!document.hidden && S.page === 'kitchen') refresh(); }, POLL_SECONDS * 1000); }
+function stopPolling() { if (S.polling) clearInterval(S.polling); S.polling = null; }
+
+function renderKitchen() {
+  var reqs = S.data.requests;
+  var list = $('reqList'); list.innerHTML = '';
+  var waiting = reqs.filter(function (r) { return r['状態'] === '受付'; });
+  if (!waiting.length) list.appendChild(el('p', { class: 'sub', text: '新しい依頼はありません。' }));
+  waiting.forEach(function (r) {
+    var u = userById(r['利用者ID']);
+    var isNew = !S.seenRequests[r['依頼番号']];
+    var btn = el('button', { class: 'btn', text: '確認しました', onclick: function () {
+      btn.disabled = true;
+      api('confirmRequest', { requestId: r['依頼番号'] }).then(function (d) {
+        S.lastChanged = d.changes.map(function (c) { return c.date + '#' + c.meal; });
+        celebrate();
+        applyState(d); toast('✨ ' + r['依頼番号'] + ' を反映しました');
+      }).catch(function (err) { toast(err.message); btn.disabled = false; });
+    } });
+    list.appendChild(el('div', { class: 'req' + (isNew ? ' new' : '') }, [
+      el('div', {}, [el('b', { text: (u ? u['氏名'] + '様' : r['利用者ID']) + '（' + (u ? u['フロア'] : '') + '）' }),
+        el('span', { class: 'badge wait', text: '受付' }),
+        r['締め切りを過ぎているか'] === 'はい' ? el('span', { class: 'badge late', text: '締め切りを過ぎています' }) : null]),
+      el('div', { text: r['説明'] }),
+      el('div', { class: 'meta', text: r['依頼番号'] + '／' + r['受付日時'].slice(5, 16) + '／' + r['入力の方法'] + '／入れた人：' + (r['入れた人'] || '―') }),
+      el('div', { class: 'row', style: 'margin-top:6px' }, [btn])
+    ]));
+  });
+  reqs.forEach(function (r) { S.seenRequests[r['依頼番号']] = true; });
+  var done = $('doneList'); done.innerHTML = '';
+  reqs.filter(function (r) { return r['状態'] !== '受付'; }).forEach(function (r) {
+    var u = userById(r['利用者ID']);
+    done.appendChild(el('div', { class: 'req' }, [
+      el('div', {}, [el('b', { text: (u ? u['氏名'] + '様' : r['利用者ID']) }), el('span', { class: 'badge ' + (r['状態'] === '反映済み' ? 'done' : 'late'), text: r['状態'] })]),
+      el('div', { text: r['説明'] }),
+      el('div', { class: 'meta', text: r['依頼番号'] + '／確認 ' + (r['厨房が確認した日時'] || '').slice(5, 16) })
+    ]));
+  });
+  renderCounts(); renderSchedUser();
+}
+
+function renderCounts() {
+  var tbl = el('table', {});
+  tbl.appendChild(el('tr', {}, [el('th', { text: '日付' })].concat(S.data.meals.map(function (m) { return el('th', { text: m }); }))));
+  S.data.days.forEach(function (d) {
+    var tr = el('tr', {}, [el('td', { class: 'd', text: md(d) + '（' + wd(d) + '）' })]);
+    S.data.meals.forEach(function (m) {
+      var n = S.data.schedule.filter(function (x) { return x['日付'] === d && x['食事'] === m && x['食べる'] === 'はい'; }).length + S.data.otherCount;
+      var isChg = S.lastChanged.indexOf(d + '#' + m) >= 0;
+      tr.appendChild(el('td', { class: isChg ? 'chg' : '', text: String(n) }));
+    });
+    tbl.appendChild(tr);
+  });
+  var box = $('countTable'); box.innerHTML = ''; box.appendChild(tbl);
+}
+
+function renderSchedUser() {
+  var sel = $('schedUser'); var cur = sel.value || (S.data.users[0] && S.data.users[0]['利用者ID']);
+  sel.innerHTML = '';
+  S.data.users.forEach(function (u) { sel.appendChild(el('option', { value: u['利用者ID'], text: u['氏名'] + '（' + u['フロア'] + '・' + u['利用区分'] + '）' })); });
+  sel.value = cur;
+  var rows = S.data.schedule.filter(function (x) { return x['利用者ID'] === cur; });
+  var u = userById(cur);
+  var box = $('schedTable'); box.innerHTML = '';
+  box.appendChild(el('p', { class: 'sub', text: '主食：' + u['主食'] + '（' + u['主食の量'] + '）／副食：' + u['副食'] + '／とろみ：' + u['とろみ'] + '／おやつ：' + u['おやつ'] + '（○＝食べる、×＝食べない。× にマウスを当てると理由）' }));
+  box.appendChild(scheduleTable(rows, null, S.lastChanged.length ? S.lastChanged : null));
+  // 形態や量が「いつも」と違う日を書き出す
+  var diffs = rows.filter(function (r) { return r['主食'] !== u['主食'] || r['主食の量'] !== u['主食の量'] || r['副食'] !== u['副食'] || r['おやつ'] !== u['おやつ']; });
+  if (diffs.length) box.appendChild(el('p', { class: 'sub', text: '形態や量が変わっている食事：' + diffs.slice(0, 8).map(function (r) { return md(r['日付']) + r['食事'] + '（' + r['主食'] + '・' + r['主食の量'] + '・' + r['副食'] + '・' + r['おやつ'] + '）'; }).join('、') + (diffs.length > 8 ? ' ほか' : '') }));
+}
+$('schedUser').addEventListener('change', renderSchedUser);
+
+// ---------- 用語集 ----------
+function renderGlossary() {
+  var box = $('glossaryList'); box.innerHTML = '';
+  var g = S.data.glossary.filter(function (x) { return x['状態'] !== '取り消し'; });
+  if (!g.length) { box.appendChild(el('p', { class: 'sub', text: 'まだ言葉はありません。介護職員の画面で、AIが知らない言葉を聞き返すと、ここに候補が入ります。' })); return; }
+  g.forEach(function (t) {
+    var actions = [];
+    if (t['状態'] === '候補') actions.push(el('button', { class: 'btn', text: '承認する', onclick: function () { termAction('approveTerm', t['言葉']); } }));
+    actions.push(el('button', { class: 'btn sec', text: '取り消す', onclick: function () { termAction('revokeTerm', t['言葉']); } }));
+    box.appendChild(el('div', { class: 'req' }, [
+      el('div', {}, [el('b', { text: '「' + t['言葉'] + '」' }), el('span', { class: 'badge ' + (t['状態'] === '承認済み' ? 'done' : 'wait'), text: t['状態'] })]),
+      el('div', { text: t['意味'] }),
+      el('div', { class: 'meta', text: (t['承認した人'] ? '承認：' + t['承認した人'] + '／' : '') + t['日時'] }),
+      el('div', { class: 'row', style: 'margin-top:6px' }, actions)
+    ]));
+  });
+}
+function termAction(action, term) {
+  api(action, { term: term, by: $('me').value }).then(function (d) {
+    S.data.glossary = d.glossary; renderGlossary();
+    if (action === 'approveTerm') celebrate();
+    toast('✨ 用語集を更新しました');
+  }).catch(function (err) { toast(err.message); });
+}
+
+// ---------- 設定 ----------
+$('openSettings').addEventListener('click', function () { $('settingsModal').classList.add('on'); });
+$('settingsClose').addEventListener('click', function () { $('settingsModal').classList.remove('on'); });
+$('resetBtn').addEventListener('click', function () {
+  if (!confirm('予定・依頼・用語集をすべて消して、最初の状態に戻します。開いている全員に効きます。よろしいですか？')) return;
+  $('resetBtn').disabled = true;
+  api('resetData').then(function (d) { S.lastChanged = []; S.result = null; $('planCard').hidden = true; applyState(d); toast('最初の状態に戻しました'); $('settingsModal').classList.remove('on'); })
+    .catch(function (err) { toast(err.message); }).then(function () { $('resetBtn').disabled = false; });
+});
+$('passReset').addEventListener('click', function () { store('meal-slip-pass', null); $('settingsModal').classList.remove('on'); askPass(); });
+
+start();
+</script>
+</body>
+</html>

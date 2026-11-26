@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイク確認テスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fff9f0; --surface: #ffffff; --ink: #2b213a; --muted: #6e6280; --line: #eadbc8;
+    --accent: #ff6b4a; --accent-2: #ff4d8d; --accent-dark: #d84327;
+    --ok: #059669; --ok-bg: #d1fae5; --ng: #e11d48; --ng-bg: #ffe4e6;
+    --font: 'M PLUS Rounded 1c', 'Noto Sans JP', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font); margin: 0; padding: 24px 16px 48px; color: var(--ink); line-height: 1.6;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 10%, rgba(255, 209, 102, 0.25) 0%, transparent 35%),
+      radial-gradient(circle at 88% 18%, rgba(255, 77, 141, 0.14) 0%, transparent 38%),
+      radial-gradient(rgba(255, 107, 74, 0.08) 1.5px, transparent 1.5px);
+    background-size: 100% 100%, 100% 100%, 26px 26px;
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 8px; font-weight: 900; display: flex; align-items: center; gap: 10px; }
+  .logo-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, #ffd166, #ff6b4a);
+    box-shadow: 0 3px 0 #d84327; font-size: 20px;
+  }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  section {
+    background: var(--surface); border: 2px solid var(--line); border-radius: 22px;
+    padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 10px 24px rgba(43, 33, 58, 0.06), 0 4px 0 rgba(234, 219, 200, 0.85);
+  }
+  h2 { font-size: 17px; margin: 0 0 10px; font-weight: 900; }
+  button {
+    font: inherit; font-size: 17px; font-weight: 900; padding: 11px 22px;
+    border-radius: 16px; border: 2px solid var(--accent-dark);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    cursor: pointer; box-shadow: 0 4px 0 var(--accent-dark);
+    transition: transform .12s cubic-bezier(.34, 1.56, .64, 1), filter .12s ease, box-shadow .12s ease;
+  }
+  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
+  button:active:not(:disabled) { transform: translateY(3px) scale(.98); box-shadow: 0 1px 0 var(--accent-dark); }
+  button:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+  .res { margin-top: 12px; padding: 10px 14px; background: var(--bg); border: 2px dashed var(--line); border-radius: 14px; white-space: pre-wrap; min-height: 1.8em; font-size: 14px; }
+  .ok { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); font-weight: 800; margin-bottom: 4px; }
+  .ng { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--ng-bg); color: var(--ng); font-weight: 800; margin-bottom: 4px; }
+  textarea {
+    width: 100%; font: inherit; font-size: 17px; padding: 10px 14px;
+    border: 2px solid var(--line); border-radius: 14px; background: var(--bg);
+  }
+  textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255, 107, 74, 0.18); }
+  .tbl-wrap { overflow-x: auto; border: 2px solid var(--line); border-radius: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td { border-bottom: 1px solid var(--line); padding: 8px 10px; vertical-align: top; word-break: break-all; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { width: 42%; background: #fff0ea; font-weight: 700; }
+  a { color: var(--accent); font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1><span class="logo-badge" aria-hidden="true">🎤</span>マイク確認テスト</h1>
+<p class="sub">GitHub Pages に置いた画面で、マイクと音声認識が使えるか、GAS とやり取りできるかを確かめます。上から順にボタンを押し、結果の画面を撮って共有してください。 <a href="index.html">← 食事箋の入力へ戻る</a></p>
+
+<section>
+  <h2>1. マイクを使えるか（録音の許可）</h2>
+  <button id="btnMic">🎤 マイクを試す</button>
+  <div class="res" id="resMic"></div>
+</section>
+
+<section>
+  <h2>2. 音声認識（話した言葉を文字にする）</h2>
+  <button id="btnSr">🗣️ 話してみる</button>
+  <div class="res" id="resSr"></div>
+</section>
+
+<section>
+  <h2>3. 予備：キーボードの音声入力</h2>
+  <p class="sub">この欄を押し、キーボードのマイクのキーで話してください。</p>
+  <textarea id="kb" rows="3" placeholder="ここに話した言葉が入ります"></textarea>
+</section>
+
+
+<section>
+  <h2>5. GAS とやり取りできるか</h2>
+  <p class="sub">2 で聞き取った文（無ければ 3 の欄の文）を GAS に送り、そのまま返ってくるかを見ます。</p>
+  <button id="btnGas">🚀 GAS に送る</button>
+  <div class="res" id="resGas"></div>
+</section>
+
+<section>
+  <h2>4. 環境の情報</h2>
+  <div class="tbl-wrap"><table id="env"></table></div>
+</section>
+</div>
+
+<script>
+  function show(id, ok, text) {
+    var el = document.getElementById(id);
+    el.innerHTML = '';
+    var b = document.createElement('span');
+    b.className = ok ? 'ok' : 'ng';
+    b.textContent = ok ? '使えました' : '使えませんでした';
+    el.appendChild(b);
+    el.appendChild(document.createTextNode('\n' + text));
+  }
+
+  // 1. getUserMedia でマイクの許可を求める
+  document.getElementById('btnMic').addEventListener('click', function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      show('resMic', false, 'このブラウザ（またはこの枠の中）には、マイクを使う機能がありません。');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var tracks = stream.getAudioTracks();
+      show('resMic', true, 'マイク：' + (tracks[0] ? tracks[0].label : '（名前なし）'));
+      tracks.forEach(function (t) { t.stop(); });
+    }).catch(function (err) {
+      show('resMic', false, 'エラー：' + err.name + '\n' + err.message);
+    });
+  });
+
+  // 2. ブラウザ標準の音声認識（Web Speech API）
+  document.getElementById('btnSr').addEventListener('click', function () {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      show('resSr', false, 'このブラウザには音声認識の機能がありません。');
+      return;
+    }
+    var sr = new SR();
+    sr.lang = 'ja-JP';
+    sr.interimResults = true;
+    sr.maxAlternatives = 1;
+    var btn = document.getElementById('btnSr');
+    var finalText = '';
+    btn.disabled = true;
+    document.getElementById('resSr').textContent = '聞き取り中です。話してください…';
+    sr.onresult = function (ev) {
+      var interim = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      document.getElementById('resSr').textContent = '聞き取り中：' + finalText + interim;
+    };
+    sr.onerror = function (ev) {
+      show('resSr', false, 'エラー：' + ev.error + (ev.message ? '\n' + ev.message : ''));
+      btn.disabled = false;
+    };
+    sr.onend = function () {
+      btn.disabled = false;
+      if (finalText) show('resSr', true, '聞き取った文：' + finalText);
+      else if (document.getElementById('resSr').textContent.indexOf('エラー') < 0) {
+        show('resSr', false, '文字になりませんでした（何も聞き取れなかったか、すぐに止められました）。');
+      }
+    };
+    try {
+      sr.start();
+    } catch (err) {
+      show('resSr', false, 'エラー：' + err.name + '\n' + err.message);
+      btn.disabled = false;
+    }
+  });
+
+
+  // 5. GAS のやり取りの口（doPost）を呼ぶ。text/plain で送り、事前の問い合わせを起こさない
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwT8C7kKG77Y8nNccj35KjIwsOUDSYX4NcfPpDPLCoAvyZQV9Wj8UWDIK0-Crrt8dDC/exec';
+  document.getElementById('btnGas').addEventListener('click', function () {
+    var sr = document.getElementById('resSr').textContent;
+    var m = sr.match(/聞き取った文：(.*)/);
+    var text = m ? m[1] : document.getElementById('kb').value;
+    if (!text) text = '（文が無いので、この文を送ります）';
+    var btn = document.getElementById('btnGas');
+    btn.disabled = true;
+    document.getElementById('resGas').textContent = '送っています…';
+    var t0 = Date.now();
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ text: text })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (!data.ok) throw new Error('GAS からのエラー：' + data.error);
+      show('resGas', true, '返ってきた文：' + data.received.text + '\nGAS の時刻：' + data.serverTime + '\nかかった時間：' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒');
+    }).catch(function (err) {
+      show('resGas', false, 'エラー：' + err.message);
+    }).then(function () { btn.disabled = false; });
+  });
+
+  // 4. 環境の情報（原因を調べるため）
+  (function () {
+    var rows = [];
+    rows.push(['ブラウザ', navigator.userAgent]);
+    rows.push(['安全な接続か（https）', String(window.isSecureContext)]);
+    var framed;
+    try { framed = window.top !== window.self; } catch (e) { framed = '判定できない（' + e.name + '）'; }
+    rows.push(['枠（iframe）の中か', String(framed)]);
+    rows.push(['このページの場所', location.origin]);
+    var pp = document.permissionsPolicy || document.featurePolicy;
+    if (pp && pp.allowsFeature) {
+      rows.push(['枠の設定でマイクが許されているか', String(pp.allowsFeature('microphone'))]);
+    } else {
+      rows.push(['枠の設定でマイクが許されているか', 'このブラウザでは調べられない']);
+    }
+    rows.push(['音声認識の機能があるか', String(!!(window.SpeechRecognition || window.webkitSpeechRecognition))]);
+    var tbl = document.getElementById('env');
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      r.forEach(function (c) { var td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+      tbl.appendChild(tr);
+    });
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'microphone' }).then(function (st) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
+        tr.lastChild.textContent = st.state;
+        tbl.appendChild(tr);
+      }).catch(function (e) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>マイクの許可の状態</td><td></td>';
+        tr.lastChild.textContent = '調べられない（' + e.name + '）';
+        tbl.appendChild(tr);
+      });
+    }
+  })();
+</script>
+</body>
+</html>
